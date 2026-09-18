@@ -1,0 +1,23 @@
+{
+  "servers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--isolated",
+        "--viewport-size", "1280x720",
+        "--allowed-origins", "https://www.saucedemo.com",
+        "--test-id-attribute", "data-test",
+        "--secrets", "secrets.env",
+        "--output-dir", ".mcp-output"
+      ]
+    },
+    "playwright-test": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["playwright", "run-test-mcp-server"]
+    }
+  },
+  "inputs": []
+}

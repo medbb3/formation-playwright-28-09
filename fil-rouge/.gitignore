@@ -1,0 +1,27 @@
+# Dépendances et builds
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.venv/
+
+# Artefacts Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Secrets et sessions
+.auth/
+secrets.env
+.env
+.env.*
+!.env.example
+
+# Agents IA
+.mcp-output/
+
+# IDE et OS
+.idea/
+.DS_Store
+Thumbs.db

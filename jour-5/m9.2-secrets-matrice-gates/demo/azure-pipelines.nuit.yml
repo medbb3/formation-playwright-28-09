@@ -1,0 +1,84 @@
+# Stages à ajouter au pipeline de la mini-banque (M9.2) : nuit (shards) et hebdo (matrice navigateurs).
+# Déclenchés par schedules (Build.Reason == Schedule) ou manuellement avec la variable FORCE_NUIT=true.
+
+- stage: Nuit
+  displayName: Suite complète (shards)
+  dependsOn: Verification
+  condition: or(eq(variables['Build.Reason'], 'Schedule'), eq(variables['FORCE_NUIT'], 'true'))
+  variables:
+  - group: mini-banque-tests            # ALICE_PASSWORD, BOB_PASSWORD, CAROL_PASSWORD, API_URL
+  jobs:
+  - job: Shards
+    strategy:
+      matrix:
+        s1: { SHARD: 1 }
+        s2: { SHARD: 2 }
+        s3: { SHARD: 3 }
+    timeoutInMinutes: 30
+    steps:
+    - script: docker compose -f docker-compose.yml -f docker-compose.tests.yml build
+      displayName: Images
+    - script: |
+        docker compose -f docker-compose.yml -f docker-compose.tests.yml run --rm \
+          -e ALICE_PASSWORD -e BOB_PASSWORD -e CAROL_PASSWORD \
+          tests npx playwright test --project=setup-real --project=chromium --project=api --project=visuel \
+          --shard=$(SHARD)/3 --reporter=blob
+      displayName: Shard $(SHARD)/3
+      env:
+        ALICE_PASSWORD: $(ALICE_PASSWORD)   # secrets mappés explicitement, jamais affichés
+        BOB_PASSWORD: $(BOB_PASSWORD)
+        CAROL_PASSWORD: $(CAROL_PASSWORD)
+    - script: docker compose -f docker-compose.yml -f docker-compose.tests.yml down -v
+      condition: always()
+    - task: PublishPipelineArtifact@1
+      condition: succeededOrFailed()
+      inputs: { targetPath: frontend/blob-report, artifact: blob-$(SHARD) }
+
+  - job: Fusion
+    dependsOn: Shards
+    condition: succeededOrFailed()
+    steps:
+    - task: NodeTool@0
+      inputs: { versionSpec: '22.x' }
+    - task: DownloadPipelineArtifact@2
+      inputs: { patterns: 'blob-*/**', path: $(Pipeline.Workspace)/blobs }
+    - script: |
+        cd frontend && npm ci
+        mkdir -p all-blob && find $(Pipeline.Workspace)/blobs -name '*.zip' -exec cp {} all-blob/ \;
+        npx playwright merge-reports --reporter html,junit,json all-blob
+        mkdir -p test-results && mv report.json test-results/report.json 2>/dev/null || true
+      displayName: Fusion des shards
+      env: { PLAYWRIGHT_JUNIT_OUTPUT_NAME: test-results/junit.xml }
+    - task: PublishTestResults@2
+      condition: succeededOrFailed()
+      inputs: { testResultsFormat: JUnit, testResultsFiles: frontend/test-results/junit.xml, testRunTitle: 'Nuit (fusion)', failTaskOnFailedTests: false }
+    - task: PublishPipelineArtifact@1
+      condition: succeededOrFailed()
+      inputs: { targetPath: frontend/playwright-report, artifact: playwright-report-nuit }
+    - script: node scripts/quality-gate.mjs frontend/test-results/report.json nightly
+      displayName: Quality gates (réussite, stabilité)
+    - script: node scripts/coverage-criteres.mjs frontend/specs frontend/tests
+      displayName: Quality gate (couverture des critères)
+
+- stage: Hebdo
+  displayName: Matrice navigateurs (smoke)
+  dependsOn: Verification
+  condition: and(eq(variables['Build.Reason'], 'Schedule'), eq(variables['HEBDO'], 'true'))
+  jobs:
+  - job: Navigateurs
+    strategy:
+      matrix:
+        chromium: { PROJET: chromium }
+        firefox: { PROJET: firefox }
+        webkit: { PROJET: webkit }
+    steps:
+    - script: docker compose -f docker-compose.yml -f docker-compose.tests.yml build
+    - script: |
+        docker compose -f docker-compose.yml -f docker-compose.tests.yml run --rm tests \
+          npx playwright test --project=setup-real --project=$(PROJET) --grep @smoke
+      displayName: Smoke $(PROJET)
+    - script: docker compose -f docker-compose.yml -f docker-compose.tests.yml down -v
+      condition: always()
+    - task: PublishTestResults@2
+      condition: succeededOrFailed()
+      inputs: { testResultsFormat: JUnit, testResultsFiles: frontend/test-results/junit.xml, testRunTitle: 'Hebdo $(PROJET)', failTaskOnFailedTests: false }

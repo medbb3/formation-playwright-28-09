@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Espace client — mini-banque</title>
+<h1>Espace client</h1>
+<p>Dernière connexion le <span id="date"></span></p>
+<p id="alerte" hidden>Votre session expire dans moins d'une minute</p>
+<p>Session expirée dans <span id="restant"></span> s</p>
+<p id="message"></p>
+<script>
+  document.getElementById('date').textContent = new Date().toLocaleDateString('fr-FR');
+  let restant = 300;
+  document.getElementById('restant').textContent = restant;
+  setInterval(() => {
+    restant -= 1;
+    document.getElementById('restant').textContent = Math.max(restant, 0);
+    document.getElementById('alerte').hidden = restant > 60 || restant <= 0;
+    if (restant <= 0) document.getElementById('message').textContent = 'Votre session a expiré';
+  }, 1000);
+</script>

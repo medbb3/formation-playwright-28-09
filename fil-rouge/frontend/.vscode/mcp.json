@@ -1,0 +1,25 @@
+{
+  "servers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@0.0.80",
+        "--isolated",
+        "--viewport-size", "1280x720",
+        "--allowed-origins", "http://localhost:5173;http://localhost:8000",
+        "--secrets", "secrets.env",
+        "--storage-state", ".auth/real/alice.json",
+        "--output-dir", ".mcp-output",
+        "--save-session",
+        "--image-responses", "omit"
+      ]
+    },
+    "playwright-test": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["playwright", "run-test-mcp-server"]
+    }
+  },
+  "inputs": []
+}

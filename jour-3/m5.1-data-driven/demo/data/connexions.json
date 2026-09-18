@@ -1,0 +1,6 @@
+[
+  { "user": "standard_user", "password": "secret_sauce", "attendu": "catalogue" },
+  { "user": "locked_out_user", "password": "secret_sauce", "attendu": "Sorry, this user has been locked out." },
+  { "user": "standard_user", "password": "mauvais", "attendu": "Username and password do not match" },
+  { "user": "", "password": "secret_sauce", "attendu": "Username is required" }
+]

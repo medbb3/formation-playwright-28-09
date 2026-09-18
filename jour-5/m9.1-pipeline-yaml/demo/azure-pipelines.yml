@@ -1,0 +1,112 @@
+# Pipeline de la mini-banque : PR (rapide) et main / nuit (complet). Tests exécutés dans Docker.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include: [frontend/*, backend/*, azure-pipelines.yml, docker-compose*.yml, templates/*]
+
+pr:
+  branches:
+    include: [main]
+
+schedules:
+- cron: '0 2 * * 1-5'            # 02:00 UTC du lundi au vendredi
+  displayName: Suite complète nocturne
+  branches:
+    include: [main]
+  always: true                   # même sans nouveau commit
+
+variables:
+  NODE_VERSION: '22.x'
+  PLAYWRIGHT_VERSION: '1.62.1'   # = @playwright/test dans frontend/package.json
+  PLAYWRIGHT_IMAGE: 'mcr.microsoft.com/playwright:v$(PLAYWRIGHT_VERSION)-noble'
+  npm_config_cache: $(Pipeline.Workspace)/.npm
+  ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+    TESTS_GREP: '@smoke'
+    TESTS_PROJECTS: '--project=setup-real --project=chromium'
+  ${{ else }}:
+    TESTS_GREP: ''
+    TESTS_PROJECTS: '--project=setup-real --project=chromium --project=visuel'
+
+pool:
+  vmImage: ubuntu-latest         # remplacer par `name: docker-local` pour un agent auto-hébergé (M9.2)
+
+stages:
+# ------------------------------------------------------------------ 1. Vérification rapide
+- stage: Verification
+  displayName: Lint et tests API
+  jobs:
+  - job: Lint
+    displayName: ESLint, TypeScript, secrets
+    steps:
+    - task: NodeTool@0
+      inputs: { versionSpec: $(NODE_VERSION) }
+    - task: Cache@2
+      displayName: Cache npm
+      inputs:
+        key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
+        restoreKeys: 'npm | "$(Agent.OS)"'
+        path: $(npm_config_cache)
+    - script: npm ci
+      workingDirectory: frontend
+      displayName: npm ci
+    - script: npx tsc -b && npm run lint
+      workingDirectory: frontend
+      displayName: TypeScript et ESLint
+    - script: |
+        docker run --rm -v "$(Build.SourcesDirectory):/repo" zricethezav/gitleaks:latest detect --source /repo --no-banner --redact
+      displayName: Scan de secrets (gitleaks)
+
+  - job: TestsAPI
+    displayName: Tests API (conteneur Playwright + backend en service)
+    container: $(PLAYWRIGHT_IMAGE)
+    services:
+      backend:
+        image: mini-banque-backend:local   # construit à l'étape précédente en réel ; ici : voir template pour la construction
+        ports: ['8000:8000']
+    steps:
+    - template: templates/tests-playwright.yml
+      parameters:
+        projets: '--project=api'
+        apiUrl: 'http://localhost:8000'
+        nomArtefact: 'api'
+
+# ------------------------------------------------------------------ 2. Tests UI dans Docker (compose)
+- stage: TestsUI
+  displayName: Tests UI (docker compose)
+  dependsOn: Verification
+  jobs:
+  - job: UI
+    displayName: Front + back + tests en conteneurs
+    timeoutInMinutes: 40
+    steps:
+    - script: |
+        docker compose -f docker-compose.yml -f docker-compose.tests.yml build
+      displayName: Construire les images
+    - script: |
+        docker compose -f docker-compose.yml -f docker-compose.tests.yml run --rm tests \
+          npx playwright test $(TESTS_PROJECTS) $(if [ -n "$(TESTS_GREP)" ]; then echo --grep "$(TESTS_GREP)"; fi)
+      displayName: Exécuter les tests
+    - script: docker compose -f docker-compose.yml -f docker-compose.tests.yml down -v
+      displayName: Arrêter les conteneurs
+      condition: always()
+    - task: PublishTestResults@2
+      displayName: Publier les résultats JUnit
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: 'frontend/test-results/junit.xml'
+        testRunTitle: 'Playwright UI ($(Build.Reason))'
+        failTaskOnFailedTests: false
+    - task: PublishPipelineArtifact@1
+      displayName: Publier le rapport HTML
+      condition: succeededOrFailed()
+      inputs:
+        targetPath: frontend/playwright-report
+        artifact: playwright-report-ui
+    - task: PublishPipelineArtifact@1
+      displayName: Publier les traces des échecs
+      condition: failed()
+      inputs:
+        targetPath: frontend/test-results
+        artifact: test-results-ui

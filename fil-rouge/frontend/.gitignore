@@ -1,0 +1,12 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.auth/
+.mcp-output/
+secrets.env
+allure-results/
+allure-report/
+monocart-report/

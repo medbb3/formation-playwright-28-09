@@ -1,0 +1,7 @@
+{
+  "name": "exo-m72-materiel",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "test": "playwright test", "agents:init": "playwright init-agents --loop vscode --prompts" },
+  "devDependencies": { "@playwright/test": "^1.62.0", "@types/node": "^22.0.0" }
+}

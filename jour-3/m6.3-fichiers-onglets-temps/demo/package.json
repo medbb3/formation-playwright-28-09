@@ -1,0 +1,7 @@
+{
+  "name": "demo-m63",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "test": "playwright test", "report": "playwright show-report" },
+  "devDependencies": { "@playwright/test": "^1.55.0", "@types/node": "^22.0.0" }
+}

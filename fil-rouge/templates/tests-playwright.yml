@@ -1,0 +1,50 @@
+# Template de job : exécute Playwright dans le conteneur courant et publie résultats et artefacts.
+parameters:
+- name: projets
+  type: string
+  default: ''
+- name: grep
+  type: string
+  default: ''
+- name: apiUrl
+  type: string
+  default: 'http://localhost:8000'
+- name: baseUrl
+  type: string
+  default: 'http://localhost:5173'
+- name: nomArtefact
+  type: string
+  default: 'tests'
+
+steps:
+- task: Cache@2
+  displayName: Cache npm
+  inputs:
+    key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
+    restoreKeys: 'npm | "$(Agent.OS)"'
+    path: $(npm_config_cache)
+- script: npm ci
+  workingDirectory: frontend
+  displayName: npm ci
+- script: |
+    npx playwright test ${{ parameters.projets }} ${{ if ne(parameters.grep, '') }}--grep "${{ parameters.grep }}"${{ end }}
+  workingDirectory: frontend
+  displayName: Playwright ${{ parameters.projets }}
+  env:
+    CI: '1'
+    API_URL: ${{ parameters.apiUrl }}
+    BASE_URL: ${{ parameters.baseUrl }}
+- task: PublishTestResults@2
+  displayName: Publier JUnit
+  condition: succeededOrFailed()
+  inputs:
+    testResultsFormat: JUnit
+    testResultsFiles: 'frontend/test-results/junit.xml'
+    testRunTitle: 'Playwright ${{ parameters.nomArtefact }}'
+    failTaskOnFailedTests: false
+- task: PublishPipelineArtifact@1
+  displayName: Publier le rapport
+  condition: succeededOrFailed()
+  inputs:
+    targetPath: frontend/playwright-report
+    artifact: playwright-report-${{ parameters.nomArtefact }}

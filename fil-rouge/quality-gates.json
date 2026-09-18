@@ -1,0 +1,7 @@
+{
+  "failedMax": 0,
+  "flakyMaxPr": 0,
+  "flakyMaxNightlyPct": 2,
+  "durationMaxPrMin": 10,
+  "criteresNonCouvertsMax": 0
+}

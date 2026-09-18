@@ -1,0 +1,29 @@
+# Dependencies and local environments
+**/node_modules/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+
+# Builds and test artifacts
+**/dist/
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/allure-results/
+**/allure-report/
+**/monocart-report/
+**/playwright/.cache/
+**/.auth/
+**/.mcp-output/
+**/.telechargements/
+
+# Local secrets
+**/.env
+**/.env.*
+!**/.env.example
+**/secrets.env
+
+# Editors and operating systems
+**/.idea/
+**/.DS_Store
+**/Thumbs.db

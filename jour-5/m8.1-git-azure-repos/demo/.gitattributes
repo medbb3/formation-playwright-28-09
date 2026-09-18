@@ -1,0 +1,10 @@
+# Fins de ligne normalisées en LF dans le dépôt (Windows <-> CI Linux)
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaires (baselines visuelles, images)
+*.png binary
+*.jpg binary
+*.webp binary
+*.zip binary

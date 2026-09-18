@@ -1,0 +1,11 @@
+# Image d'exécution des tests Playwright : même image que la CI (navigateurs et dépendances système inclus).
+# La version DOIT correspondre à @playwright/test dans package.json.
+FROM mcr.microsoft.com/playwright:v1.62.1-noble
+WORKDIR /work
+COPY package.json package-lock.json* ./
+RUN npm ci --ignore-scripts
+COPY playwright.config.ts tsconfig.json ./
+COPY tests ./tests
+ENV CI=1
+# Par défaut : projets UI et API contre le backend réel ; surchargé par docker compose ou la CI
+CMD ["npx", "playwright", "test", "--project=setup-real", "--project=chromium", "--project=api"]
